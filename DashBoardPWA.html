@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Dashboard PWA Universitaria</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+*{box-sizing:border-box;font-family:Poppins,Arial}
+body{margin:0;background:#f4f7fb;color:#333}
+header{
+ background:linear-gradient(135deg,#5C6BC0,#42A5F5,#26C6DA);
+ padding:25px;color:white;text-align:center;
+ border-bottom-left-radius:20px;border-bottom-right-radius:20px;
+}
+.container{padding:20px;max-width:1300px;margin:auto}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+.filters select{padding:10px;border-radius:10px;border:1px solid #bbb}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.kpi{
+ background:linear-gradient(135deg,#42A5F5,#7E57C2);
+ color:white;padding:18px;border-radius:16px;
+ box-shadow:0px 6px 18px rgba(0,0,0,.08);
+}
+.kpi span{font-size:26px;font-weight:bold}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.card{background:white;border-radius:16px;padding:15px;box-shadow:0px 6px 18px rgba(0,0,0,.08)}
+.card h3{margin:0 0 10px}
+.table-container{overflow-x:auto}
+table{width:100%;border-collapse:collapse;background:white;border-radius:12px;overflow:hidden}
+th,td{padding:10px;text-align:left}
+th{background:#3949AB;color:white}
+tr:nth-child(even){background:#eef3ff}
+.heatmap{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cell{height:28px;border-radius:6px;background:#e0e0e0}
+.insights{background:white;border-radius:16px;padding:15px;}
+.badge{background:#e3f2fd;color:#0d47a1;padding:6px 10px;border-radius:10px;font-weight:600}
+</style>
+</head>
+
+<body>
+
+<header>
+<h2>PWA Universitaria — Dashboard</h2>
+<p>Ventas • Uso de la App • Impacto Académico</p>
+</header>
+
+<div class="container">
+
+<!-- FILTROS -->
+<div class="filters">
+<select id="monthFilter"><option value="Todos">Todos los Meses</option></select>
+<select id="categoryFilter"><option value="Todas">Todas las Categorías</option></select>
+<select id="productFilter"><option value="Todos">Todos los Productos</option></select>
+</div>
+
+<!-- KPIS -->
+<div class="kpis">
+<div class="kpi">Ingresos Totales<br><span id="totalIncome">$0</span></div>
+<div class="kpi">Unidades Vendidas<br><span id="totalUnits">0</span></div>
+<div class="kpi">Ticket Promedio<br><span id="avgTicket">$0</span></div>
+<div class="kpi">Productos Activos<br><span id="activeProducts">0</span></div>
+</div>
+
+<!-- GRAFICAS -->
+<div class="grid">
+<div class="card"><h3>Tendencia Mensual</h3><canvas id="lineChart"></canvas></div>
+<div class="card"><h3>Ingresos por Categoría</h3><canvas id="barChart"></canvas></div>
+<div class="card"><h3>Top Productos</h3><canvas id="pieChart"></canvas></div>
+<div class="card"><h3>Unidades Vendidas</h3><canvas id="unitsChart"></canvas></div>
+</div>
+
+<hr><h2>Analítica de Uso de la PWA</h2>
+
+<div class="kpis">
+<div class="kpi">Usuarios Registrados<br><span id="regUsers">87%</span></div>
+<div class="kpi">Tareas Completadas<br><span id="tasksComp">78%</span></div>
+<div class="kpi">Pomodoros Usados<br><span id="pomoCount">0</span></div>
+<div class="kpi">Estancia Promedio<br><span id="stayTime">18 min</span></div>
+</div>
+
+<div class="grid">
+<div class="card"><h3>Uso Pomodoro</h3><canvas id="pomoChart"></canvas></div>
+<div class="card"><h3>Ayuda Percibida</h3><canvas id="helpChart"></canvas></div>
+<div class="card">
+<h3>Mapa de Calor de Visitas</h3>
+<div class="heatmap" id="heatmap"></div>
+<small><span class="badge">Más oscuro = más visitas</span></small>
+</div>
+</div>
+
+<h2>Tabla de Datos</h2>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Mes</th>
+<th>Producto</th>
+<th>Categoría</th>
+<th>Precio</th>
+<th>Unidades</th>
+<th>Ingresos</th>
+</tr>
+</thead>
+<tbody id="tableBody"></tbody>
+</table>
+</div>
+
+<div class="insights">
+<h3>Insights 💡</h3>
+<ul id="insightList"></ul>
+</div>
+
+</div>
+
+<script>
+// ------------ DATASET (YA FUNCIONA) ---------------
+const sales = [
+{Mes:"Enero",Producto:"Cuaderno Pro",Categoría:"Papelería",PrecioUnitario_MXN:120,UnidadesVendidas:80,IngresosTotales_MXN:9600},
+{Mes:"Febrero",Producto:"Cuaderno Pro",Categoría:"Papelería",PrecioUnitario_MXN:120,UnidadesVendidas:110,IngresosTotales_MXN:13200},
+{Mes:"Marzo",Producto:"Calculadora FX",Categoría:"Tecnología",PrecioUnitario_MXN:850,UnidadesVendidas:45,IngresosTotales_MXN:38250},
+{Mes:"Abril",Producto:"Pluma Gel",Categoría:"Papelería",PrecioUnitario_MXN:35,UnidadesVendidas:220,IngresosTotales_MXN:7700},
+{Mes:"Mayo",Producto:"Mochila Uni",Categoría:"Accesorios",PrecioUnitario_MXN:680,UnidadesVendidas:60,IngresosTotales_MXN:40800},
+{Mes:"Junio",Producto:"Tablet Study",Categoría:"Tecnología",PrecioUnitario_MXN:3200,UnidadesVendidas:25,IngresosTotales_MXN:80000},
+{Mes:"Julio",Producto:"Audífonos Study",Categoría:"Tecnología",PrecioUnitario_MXN:950,UnidadesVendidas:70,IngresosTotales_MXN:66500},
+{Mes:"Agosto",Producto:"Agenda Smart",Categoría:"Organización",PrecioUnitario_MXN:260,UnidadesVendidas:140,IngresosTotales_MXN:36400},
+{Mes:"Septiembre",Producto:"Folder Premium",Categoría:"Papelería",PrecioUnitario_MXN:45,UnidadesVendidas:300,IngresosTotales_MXN:13500},
+{Mes:"Octubre",Producto:"USB 64GB",Categoría:"Tecnología",PrecioUnitario_MXN:380,UnidadesVendidas:150,IngresosTotales_MXN:57000},
+{Mes:"Noviembre",Producto:"Calculadora FX",Categoría:"Tecnología",PrecioUnitario_MXN:850,UnidadesVendidas:90,IngresosTotales_MXN:76500},
+{Mes:"Diciembre",Producto:"Mochila Uni",Categoría:"Accesorios",PrecioUnitario_MXN:680,UnidadesVendidas:95,IngresosTotales_MXN:64600},
+];
+
+// ------------ Filtros dinámicos -------------
+const monthSelect=document.getElementById("monthFilter");
+const categorySelect=document.getElementById("categoryFilter");
+const productSelect=document.getElementById("productFilter");
+
+[...new Set(sales.map(x=>x.Mes))].forEach(m=>monthSelect.innerHTML+=`<option>${m}</option>`);
+[...new Set(sales.map(x=>x.Categoría))].forEach(c=>categorySelect.innerHTML+=`<option>${c}</option>`);
+[...new Set(sales.map(x=>x.Producto))].forEach(p=>productSelect.innerHTML+=`<option>${p}</option>`);
+
+function getFiltered(){
+ let data=[...sales];
+ if(monthSelect.value!=="Todos") data=data.filter(d=>d.Mes===monthSelect.value);
+ if(categorySelect.value!=="Todas") data=data.filter(d=>d.Categoría===categorySelect.value);
+ if(productSelect.value!=="Todos") data=data.filter(d=>d.Producto===productSelect.value);
+ return data;
+}
+
+// ------------ KPIs ----------------
+function updateKPIs(list){
+ let inc=list.reduce((a,b)=>a+b.IngresosTotales_MXN,0);
+ let uni=list.reduce((a,b)=>a+b.UnidadesVendidas,0);
+ document.getElementById("totalIncome").innerText="$"+inc.toLocaleString();
+ document.getElementById("totalUnits").innerText=uni;
+ document.getElementById("avgTicket").innerText="$"+Math.round(inc/(uni||1));
+ document.getElementById("activeProducts").innerText=[...new Set(list.map(x=>x.Producto))].length;
+}
+
+// ---------- Tabla --------------
+function updateTable(list){
+ let tbody=document.getElementById("tableBody");
+ tbody.innerHTML="";
+ list.forEach(r=>{
+  tbody.innerHTML+=`
+  <tr>
+  <td>${r.Mes}</td>
+  <td>${r.Producto}</td>
+  <td>${r.Categoría}</td>
+  <td>$${r.PrecioUnitario_MXN}</td>
+  <td>${r.UnidadesVendidas}</td>
+  <td>$${r.IngresosTotales_MXN}</td>
+  </tr>`;
+ });
+}
+
+// --------- Gráficas ----------
+let lineChart,barChart,pieChart,unitsChart;
+const destroy = c=>c&&c.destroy();
+
+function drawCharts(list){
+ destroy(lineChart);destroy(barChart);destroy(pieChart);destroy(unitsChart);
+
+ const byMonth={};
+ const byCat={};
+ const byUnits={};
+ const top={};
+
+ list.forEach(r=>{
+  byMonth[r.Mes]=(byMonth[r.Mes]||0)+r.IngresosTotales_MXN;
+  byCat[r.Categoría]=(byCat[r.Categoría]||0)+r.IngresosTotales_MXN;
+  byUnits[r.Mes]=(byUnits[r.Mes]||0)+r.UnidadesVendidas;
+  top[r.Producto]=(top[r.Producto]||0)+r.IngresosTotales_MXN;
+ });
+
+ const sortedTop=Object.entries(top).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+ lineChart=new Chart(lineChartCtx,{
+  type:'line',
+  data:{labels:Object.keys(byMonth),
+  datasets:[{data:Object.values(byMonth),borderColor:"#42A5F5",backgroundColor:"rgba(66,165,245,.3)",fill:true,tension:.3}]}
+ });
+
+ barChart=new Chart(barChartCtx,{
+  type:'bar',
+  data:{labels:Object.keys(byCat),
+  datasets:[{data:Object.values(byCat),backgroundColor:"#7E57C2"}]}
+ });
+
+ pieChart=new Chart(pieChartCtx,{
+  type:'pie',
+  data:{labels:sortedTop.map(x=>x[0]),
+  datasets:[{data:sortedTop.map(x=>x[1]),backgroundColor:["#26C6DA","#42A5F5","#5C6BC0","#7E57C2","#AB47BC"]}]}
+ });
+
+ unitsChart=new Chart(unitsChartCtx,{
+  type:'bar',
+  data:{labels:Object.keys(byUnits),
+  datasets:[{data:Object.values(byUnits),backgroundColor:"#26C6DA"}]}
+ });
+}
+
+// canvases
+const lineChartCtx=document.getElementById("lineChart");
+const barChartCtx=document.getElementById("barChart");
+const pieChartCtx=document.getElementById("pieChart");
+const unitsChartCtx=document.getElementById("unitsChart");
+
+// -------- Insights -------
+function insights(list){
+ let out=[];
+ const best=[...list].sort((a,b)=>b.IngresosTotales_MXN-a.IngresosTotales_MXN)[0];
+ if(best) out.push(`Producto estrella: <b>${best.Producto}</b>`);
+ if(list.reduce((a,b)=>a+b.IngresosTotales_MXN,0)>100000) out.push("Excelente desempeño financiero 🎉");
+ document.getElementById("insightList").innerHTML=out.map(x=>`<li>${x}</li>`).join("");
+}
+
+// -------- PWA ----------
+const pomoMonthly=[30,40,60,75,90,110,130,150,170,180,200,230];
+document.getElementById("pomoCount").innerText=pomoMonthly.reduce((a,b)=>a+b);
+
+new Chart(document.getElementById("pomoChart"),{
+ type:"line",
+ data:{labels:["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
+ datasets:[{data:pomoMonthly,borderColor:"#FF7043",backgroundColor:"rgba(255,112,67,.3)",fill:true,tension:.3}]}
+});
+
+new Chart(document.getElementById("helpChart"),{
+ type:"doughnut",
+ data:{labels:["Mucho","Moderado","Poco"],
+ datasets:[{data:[60,30,10],backgroundColor:["#26A69A","#42A5F5","#EF5350"]}]}
+});
+
+// Heatmap
+const heatmap=document.getElementById("heatmap");
+for(let i=0;i<49;i++){
+ let lvl=Math.random();
+ let c=document.createElement("div");
+ c.className="cell";
+ c.style.background=`rgba(66,165,245,${lvl})`;
+ heatmap.appendChild(c);
+}
+
+// -------- Update maestro ------
+function update(){
+ const f=getFiltered();
+ updateKPIs(f);
+ updateTable(f);
+ drawCharts(f);
+ insights(f);
+}
+monthSelect.onchange=categorySelect.onchange=productSelect.onchange=update;
+update();
+</script>
+
+</body>
+</html>
